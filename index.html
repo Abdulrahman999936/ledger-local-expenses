@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Ledger Local Expenses</title>
+    <style>
+          :root {
+                  --primary: #2563eb;
+                  --primary-hover: #1d4ed8;
+                  --bg: #f8fafc;
+                  --card-bg: #ffffff;
+                  --text: #1e293b;
+                  --border: #e2e8f0;
+                  --danger: #ef4444;
+                  --success: #22c55e;
+                  --warning: #f59e0b;
+          }
+          * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+          body { background-color: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+          .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+          header { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-wrap: wrap; gap: 15px; }
+          h1 { font-size: 1.5rem; color: #0f172a; }
+          .controls-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+          select, input, button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; outline: none; }
+          button { cursor: pointer; background: var(--primary); color: white; border: none; font-weight: 600; transition: background 0.2s; }
+          button:hover { background: var(--primary-hover); }
+          button.btn-secondary { background: #64748b; }
+          button.btn-secondary:hover { background: #475569; }
+          button.btn-danger { background: var(--danger); }
+          button.btn-danger:hover { background: #dc2626; }
+          button.btn-success { background: var(--success); }
+          button.btn-success:hover { background: #16a34a; }
+
+          .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+          @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+          .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          .card h2 { font-size: 1.2rem; margin-bottom: 15px; border-bottom: 2px solid var(--bg); padding-bottom: 8px; }
+
+          .budget-info { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.95rem; font-weight: 600; }
+          .progress-bar-container { background: #e2e8f0; border-radius: 8px; height: 16px; overflow: hidden; margin-bottom: 10px; }
+          .progress-bar { height: 100%; width: 0%; background: var(--success); transition: width 0.3s, background-color 0.3s; }
+          .budget-input-group { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
+
+          .form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
+          .form-group label { font-size: 0.85rem; font-weight: 600; color: #64748b; }
+          .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+          .filter-bar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+          .filter-bar input, .filter-bar select { flex: 1; min-width: 150px; }
+          table { width: 100%; border-collapse: collapse; text-align: left; }
+          th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+          th { background: #f1f5f9; color: #475569; font-weight: 600; }
+          .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: #e0e7ff; color: #3730a3; }
+
+          .chart-container { display: flex; justify-content: center; align-items: center; height: 220px; }
+          canvas { max-width: 100%; max-height: 100%; }
+        </style>
+  </head>
+  <body>
+      <div class="container">
+            <header>
+                    <h1>ledger-local-expenses</h1>
+                  <div class="controls-top">
+                          <label for="currencySelect">Currency:</label>label>
+                          <select id="currencySelect" onchange="changeCurrency()">
+                                    <option value="EGP">EGP (E£)</option>option>
+                                    <option value="USD">USD ($)</option>option>
+                                    <option value="EUR">EUR (€)</option>option>
+                                    <option value="GBP">GBP (£)</option>option>
+                          </select>select>
+                          <button class="btn-secondary" onclick="loadSampleData()">Load Sample Data</button>button>
+                          <button class="btn-success" onclick="exportCSV()">Export CSV</button>button>
+                  </div>div>
+            </header>
+      
+          <div class="grid-2">
+                <div class="card">
+                        <h2>Monthly Budget Target</h2>
+                        <div class="budget-info">
+                                  <span>Spent: <span id="totalSpentText">0</span></span>
+                                  <span>Target: <span id="budgetTgtText">0</span></span>
+                        </div>div>
+                        <div class="progress-bar-container">
+                                  <div id="progressBar" class="progress-bar"></div>div>
+                        </div>div>
+                        <div id="budgetRemainingText" style="font-size:0.85rem; font-weight:600; text-align:right;"></div>div>
+                        <div class="budget-input-group">
+                                  <input type="number" id="budgetInput" placeholder="Set Monthly Budget Target" min="0" step="10">
+                                  <button onclick="setBudget()">Save Budget</button>button>
+                        </div>div>
+                </div>div>
+          
+                <div class="card">
+                        <h2>Category Breakdown</h2>
+                        <div class="chart-container">
+                                  <canvas id="categoryChart" width="300" height="200"></canvas>canvas>
+                        </div>div>
+                </div>div>
+          </div>div>
+      
+          <div class="card">
+                <h2 id="formTitle">Add New Expense</h2>
+                <form id="expenseForm" onsubmit="handleFormSubmit(event)">
+                        <input type="hidden" id="expenseId">
+                        <div class="form-row">
+                                  <div class="form-group">
+                                              <label for="expDate">Date</label>label>
+                                              <input type="date" id="expDate" required>
+                                  </div>div>
+                                  <div class="form-group">
+                                              <label for="expCategory">Category</label>label>
+                                              <select id="expCategory" required>
+                                                            <option value="Food">Food</option>option>
+                                                            <option value="Rent">Rent</option>option>
+                                                            <option value="Utilities">Utilities</option>option>
+                                                            <option value="Entertainment">Entertainment</option>option>
+                                                            <option value="Transport">Transport</option>option>
+                                                            <option value="Healthcare">Healthcare</option>option>
+                                                            <option value="Shopping">Shopping</option>option>
+                                                            <option value="Other">Other</option>option>
+                                              </select>select>
+                                  </div>div>
+                        </div>div>
+                        <div class="form-row">
+                                  <div class="form-group">
+                                              <label for="expDesc">Description</label>label>
+                                              <input type="text" id="expDesc" placeholder="e.g., Grocery store" required>
+                                  </div>div>
+                                  <div class="form-group">
+                                              <label for="expAmount">Amount</label>label>
+                                              <input type="number" id="expAmount" placeholder="0.00" step="0.01" min="0.01" required>
+                                  </div>div>
+                        </div>div>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                                  <button type="submit" id="submitBtn">Add Expense</button>button>
+                                  <button type="button" id="cancelBtn" class="btn-secondary" style="display:none;" onclick="resetForm()">Cancel Edit</button>button>
+                        </div>div>
+                </form>form>
+          </div>div>
+      
+          <div class="card">
+                <h2>Expense Records</h2>
+                <div class="filter-bar">
+                        <input type="text" id="searchInput" placeholder="Search description..." oninput="renderApp()">
+                        <select id="categoryFilter" onchange="renderApp()">
+                                  <option value="ALL">All Categories</option>option>
+                                  <option value="Food">Food</option>option>
+                                  <option value="Rent">Rent</option>option>
+                                  <option value="Utilities">Utilities</option>option>
+                                  <option value="Entertainment">Entertainment</option>option>
+                                  <option value="Transport">Transport</option>option>
+                                  <option value="Healthcare">Healthcare</option>option>
+                                  <option value="Shopping">Shopping</option>option>
+                                  <option value="Other">Other</option>option>
+                        </select>select>
+                </div>div>
+          
+                <div style="overflow-x:auto;">
+                        <table>
+                                    <thead>
+                                                  <tr>
+                                                                  <th>Date</th>
+                                                  <th>Category</th>
+                                                  <th>Description</th>
+                                                  <th>Amount</th>
+                                                  <th>Actions</th>
+                                                  </tr>
+                                    </thead>
+                                  <tbody id="expenseTableBody">
+                                  </tbody>tbody>
+                        </table>
+                </div>div>
+          </div>div>
+      </div>div>
+  
+    <script>
+          const CURRENCY_SYMBOLS = { EGP: 'E£', USD: '$', EUR: '€', GBP: '£' };
+
+          let expenses = JSON.parse(localStorage.getItem('ledger_expenses')) || [];
+          let currentCurrency = localStorage.getItem('ledger_currency') || 'EGP';
+          let budgetTarget = parseFloat(localStorage.getItem('ledger_budget')) || 2000;
+
+          document.getElementById('currencySelect').value = currentCurrency;
+          document.getElementById('budgetInput').value = budgetTarget;
+          document.getElementById('expDate').valueAsDate = new Date();
+
+          function saveState() {
+                  localStorage.setItem('ledger_expenses', JSON.stringify(expenses));
+                  localStorage.setItem('ledger_currency', currentCurrency);
+                  localStorage.setItem('ledger_budget', budgetTarget.toString());
+          }
+
+          function changeCurrency() {
+                  currentCurrency = document.getElementById('currencySelect').value;
+                  saveState();
+                  renderApp();
+          }
+
+          function setBudget() {
+                  const val = parseFloat(document.getElementById('budgetInput').value);
+                  if (!isNaN(val) && val >= 0) {
+                            budgetTarget = val;
+                            saveState();
+                            renderApp();
+                  }
+          }
+
+          function handleFormSubmit(e) {
+                  e.preventDefault();
+                  const id = document.getElementById('expenseId').value;
+                  const date = document.getElementById('expDate').value;
+                  const category = document.getElementById('expCategory').value;
+                  const desc = document.getElementById('expDesc').value.trim();
+                  const amount = parseFloat(document.getElementById('expAmount').value);
+
+                  if (id) {
+                            const index = expenses.findIndex(exp => exp.id === id);
+                            if (index !== -1) {
+                                        expenses[index] = { id, date, category, desc, amount };
+                            }
+                  } else {
+                            const newExp = {
+                                        id: Date.now().toString(),
+                                        date,
+                                        category,
+                                        desc,
+                                        amount
+                            };
+                            expenses.unshift(newExp);
+                  }
+
+                  saveState();
+                  resetForm();
+                  renderApp();
+          }
+
+          function editExpense(id) {
+                  const exp = expenses.find(item => item.id === id);
+                  if (!exp) return;
+                  document.getElementById('expenseId').value = exp.id;
+                  document.getElementById('expDate').value = exp.date;
+                  document.getElementById('expCategory').value = exp.category;
+                  document.getElementById('expDesc').value = exp.desc;
+                  document.getElementById('expAmount').value = exp.amount;
+
+                  document.getElementById('formTitle').innerText = 'Edit Expense';
+                  document.getElementById('submitBtn').innerText = 'Update Expense';
+                  document.getElementById('cancelBtn').style.display = 'inline-block';
+          }
+
+          function deleteExpense(id) {
+                  if (confirm('Are you sure you want to delete this expense?')) {
+                            expenses = expenses.filter(item => item.id !== id);
+                            saveState();
+                            renderApp();
+                  }
+          }
+
+          function resetForm() {
+                  document.getElementById('expenseId').value = '';
+                  document.getElementById('expenseForm').reset();
+                  document.getElementById('expDate').valueAsDate = new Date();
+                  document.getElementById('formTitle').innerText = 'Add New Expense';
+                  document.getElementById('submitBtn').innerText = 'Add Expense';
+                  document.getElementById('cancelBtn').style.display = 'none';
+          }
+
+          function loadSampleData() {
+                  expenses = [
+                    { id: '1', date: '2026-10-01', category: 'Rent', desc: 'Monthly Apartment Rent', amount: 800 },
+                    { id: '2', date: '2026-10-03', category: 'Food', desc: 'Supermarket Groceries', amount: 150.50 },
+                    { id: '3', date: '2026-10-05', category: 'Utilities', desc: 'Electricity & Internet Bill', amount: 95.00 },
+                    { id: '4', date: '2026-10-08', category: 'Transport', desc: 'Fuel / Gas Station', amount: 45.00 },
+                    { id: '5', date: '2026-10-10', category: 'Entertainment', desc: 'Cinema & Dinner with friends', amount: 65.00 },
+                    { id: '6', date: '2026-10-12', category: 'Shopping', desc: 'New Running Shoes', amount: 110.00 }
+                          ];
+                  saveState();
+                  renderApp();
+          }
+
+          function exportCSV() {
+                  if (expenses.length === 0) {
+                            alert('No expense data to export.');
+                            return;
+                  }
+                  let csvContent = "data:text/csv;charset=utf-8,ID,Date,Category,Description,Amount,Currency\n";
+                  expenses.forEach(exp => {
+                            const row = [exp.id, exp.date, `"${exp.category}"`, `"${exp.desc.replace(/"/g, '""')}"`, exp.amount, currentCurrency].join(",");
+                            csvContent += row + "\n";
+                  });
+                  const encodedUri = encodeURI(csvContent);
+                  const link = document.createElement("a");
+                  link.setAttribute("href", encodedUri);
+                  link.setAttribute("download", "ledger_local_expenses.csv");
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+          }
+
+          function renderApp() {
+                  const symbol = CURRENCY_SYMBOLS[currentCurrency] || '$';
+                  const search = document.getElementById('searchInput').value.toLowerCase();
+                  const catFilter = document.getElementById('categoryFilter').value;
+
+                  const filtered = expenses.filter(exp => {
+                            const matchesSearch = exp.desc.toLowerCase().includes(search);
+                            const matchesCat = (catFilter === 'ALL' || exp.category === catFilter);
+                            return matchesSearch && matchesCat;
+                  });
+
+                  const tbody = document.getElementById('expenseTableBody');
+                  tbody.innerHTML = '';
+                  if (filtered.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">No expenses recorded matching criteria.</td></tr>';
+                  } else {
+                            filtered.forEach(exp => {
+                                        const tr = document.createElement('tr');
+                                        tr.innerHTML = `
+                                                    <td>${exp.date}</td>
+                                                                <td><span class="badge">${exp.category}</span></td>
+                                                                            <td>${exp.desc}</td>
+                                                                                        <td><strong>${symbol} ${exp.amount.toFixed(2)}</strong></td>
+                                                                                                    <td>
+                                                                                                                  <button class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="editExpense('${exp.id}')">Edit</button>
+                                                                                                                                <button class="btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteExpense('${exp.id}')">Delete</button>
+                                                                                                                                            </td>
+                                                                                                                                                      `;
+                                        tbody.appendChild(tr);
+                            });
+                  }
+
+                  const totalSpent = expenses.reduce((sum, item) => sum + item.amount, 0);
+                  document.getElementById('totalSpentText').innerText = `${symbol} ${totalSpent.toFixed(2)}`;
+                  document.getElementById('budgetTgtText').innerText = `${symbol} ${budgetTarget.toFixed(2)}`;
+
+                  const pct = budgetTarget > 0 ? Math.min((totalSpent / budgetTarget) * 100, 100) : 0;
+                  const bar = document.getElementById('progressBar');
+                  bar.style.width = `${pct}%`;
+
+                  const remaining = budgetTarget - totalSpent;
+                  const remText = document.getElementById('budgetRemainingText');
+
+                  if (pct >= 100) {
+                            bar.style.backgroundColor = 'var(--danger)';
+                            remText.style.color = 'var(--danger)';
+                            remText.innerText = `Budget Exceeded by ${symbol} ${Math.abs(remaining).toFixed(2)}`;
+                  } else if (pct >= 85) {
+                            bar.style.backgroundColor = 'var(--warning)';
+                            remText.style.color = 'var(--warning)';
+                            remText.innerText = `Warning: ${symbol} ${remaining.toFixed(2)} remaining`;
+                  } else {
+                            bar.style.backgroundColor = 'var(--success)';
+                            remText.style.color = 'var(--success)';
+                            remText.innerText = `Remaining: ${symbol} ${remaining.toFixed(2)}`;
+                  }
+
+                  renderChart();
+          }
+
+          function renderChart() {
+                  const canvas = document.getElementById('categoryChart');
+                  const ctx = canvas.getContext('2d');
+                  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                  const totals = {};
+                  expenses.forEach(exp => {
+                            totals[exp.category] = (totals[exp.category] || 0) + exp.amount;
+                  });
+
+                  const categories = Object.keys(totals);
+                  if (categories.length === 0) {
+                            ctx.fillStyle = '#94a3b8';
+                            ctx.font = '14px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.fillText('No expense data to chart', canvas.width / 2, canvas.height / 2);
+                            return;
+                  }
+
+                  const colors = ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
+                  const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
+
+                  let startAngle = 0;
+                  const centerX = 100;
+                  const centerY = canvas.height / 2;
+                  const outerRadius = 70;
+                  const innerRadius = 35;
+
+                  categories.forEach((cat, idx) => {
+                            const val = totals[cat];
+                            const sliceAngle = (val / grandTotal) * 2 * Math.PI;
+                            const color = colors[idx % colors.length];
+
+                            ctx.beginPath();
+                            ctx.arc(centerX, centerY, outerRadius, startAngle, startAngle + sliceAngle);
+                            ctx.arc(centerX, centerY, innerRadius, startAngle + sliceAngle, startAngle, true);
+                            ctx.closePath();
+                            ctx.fillStyle = color;
+                            ctx.fill();
+
+                            startAngle += sliceAngle;
+                  });
+
+                  let legendX = 190;
+                  let legendY = 25;
+                  ctx.textAlign = 'left';
+                  ctx.font = '11px sans-serif';
+
+                  categories.forEach((cat, idx) => {
+                            const color = colors[idx % colors.length];
+                            const pct = Math.round((totals[cat] / grandTotal) * 100);
+
+                            ctx.fillStyle = color;
+                            ctx.fillRect(legendX, legendY - 9, 12, 12);
+
+                            ctx.fillStyle = '#1e293b';
+                            ctx.fillText(`${cat} (${pct}%)`, legendX + 18, legendY);
+
+                            legendY += 20;
+                            if (legendY > canvas.height - 10) {
+                                        legendX += 100;
+                                        legendY = 25;
+                            }
+                  });
+          }
+
+          renderApp();
+    </script>
+  </body>
+</html>html>
+    </script></th></th>
+                                                  </tr>
+                                    </thead>
+                        </table></span></span></h2></h1>
+            </header>
+  </body>
+    </style></title>
+  </head>
